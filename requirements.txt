@@ -1,6 +1,3 @@
-streamlit
 deepface
-pandas
-openpyxl
-pytz
 opencv-python-headless
+openpyxl
