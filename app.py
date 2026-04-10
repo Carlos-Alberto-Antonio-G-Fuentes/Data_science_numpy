@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import face_recognition
 import cv2
 import os
 import datetime
@@ -8,18 +7,19 @@ import pytz
 import numpy as np
 from PIL import Image
 
-st.set_page_config(page_title="Sistema IA Facial Lite", page_icon="👤")
-st.title("👤 Control de Acceso (Versión Lite)")
+# Configuración
+st.set_page_config(page_title="Sistema de Acceso Ultra-Lite", page_icon="👤")
+st.title("👤 Control de Acceso (Versión Estable)")
 
-DB_PATH = "mis_rostros"
 EXCEL_FILE = "registro_ia.xlsx"
 ZONA_HORARIA = pytz.timezone('America/Santiago')
 
-if not os.path.exists(DB_PATH): os.makedirs(DB_PATH)
+# Cargar el detector de rostros pre-entrenado (viene con OpenCV)
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-def anotar_en_excel(nombre_id, confianza):
+def anotar_en_excel(nombre_id, estado):
     ahora = datetime.datetime.now(ZONA_HORARIA)
-    nuevo = {'ID': nombre_id, 'Fecha_Hora': ahora.strftime("%d/%m/%Y %H:%M:%S"), 'Estado': confianza}
+    nuevo = {'ID': nombre_id, 'Fecha_Hora': ahora.strftime("%d/%m/%Y %H:%M:%S"), 'Estado': estado}
     df = pd.read_excel(EXCEL_FILE) if os.path.exists(EXCEL_FILE) else pd.DataFrame(columns=['ID', 'Fecha_Hora', 'Estado'])
     df = pd.concat([df, pd.DataFrame([nuevo])], ignore_index=True)
     df.to_excel(EXCEL_FILE, index=False)
@@ -27,42 +27,30 @@ def anotar_en_excel(nombre_id, confianza):
 tab1, tab2 = st.tabs(["📸 Escáner", "📊 Historial"])
 
 with tab1:
-    img_file = st.camera_input("Capturar")
+    img_file = st.camera_input("Capturar Rostro")
     if img_file:
-        # Cargar imagen capturada
-        image = face_recognition.load_image_file(img_file)
-        face_encodings = face_recognition.face_encodings(image)
-
-        if len(face_encodings) > 0:
-            current_face_encoding = face_encodings[0]
-            identificado = False
-            
-            # Comparar con la base de datos
-            for file in os.listdir(DB_PATH):
-                if file.endswith((".jpg", ".png")):
-                    known_image = face_recognition.load_image_file(f"{DB_PATH}/{file}")
-                    known_encodings = face_recognition.face_encodings(known_image)
-                    
-                    if len(known_encodings) > 0:
-                        results = face_recognition.compare_faces([known_encodings[0]], current_face_encoding, tolerance=0.6)
-                        if results[0]:
-                            nombre = file.split(".")[0]
-                            st.success(f"✅ Identificado: {nombre}")
-                            anotar_en_excel(nombre, "Reconocido")
-                            identificado = True
-                            break
-            
-            if not identificado:
-                st.error("❓ No reconocido")
-                nuevo_nombre = st.text_input("Registrar como:")
-                if st.button("Guardar"):
-                    img_pil = Image.open(img_file)
-                    img_pil.save(f"{DB_PATH}/{nuevo_nombre}.jpg")
-                    anotar_en_excel(nuevo_nombre, "Registrado")
-                    st.experimental_rerun()
+        # Convertir imagen para OpenCV
+        img = Image.open(img_file)
+        img_array = np.array(img)
+        gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+        
+        # Detectar rostros
+        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+        
+        if len(faces) > 0:
+            st.success(f"✅ ¡Rostro detectado!")
+            nombre = st.text_input("Ingresa tu Nombre para registrar acceso:")
+            if st.button("Confirmar Registro"):
+                anotar_en_excel(nombre, "Acceso Autorizado")
+                st.balloons()
+                st.info(f"Registro completado para: {nombre}")
         else:
-            st.warning("No se detectó ningún rostro en la imagen.")
+            st.error("❌ No se detecta un rostro claro. Reintenta con mejor luz.")
 
 with tab2:
     if os.path.exists(EXCEL_FILE):
-        st.dataframe(pd.read_excel(EXCEL_FILE).sort_values(by="Fecha_Hora", ascending=False))
+        st.subheader("Libro de Asistencia")
+        df_log = pd.read_excel(EXCEL_FILE)
+        st.dataframe(df_log.sort_values(by="Fecha_Hora", ascending=False), use_container_width=True)
+    else:
+        st.info("Aún no hay registros.")
