@@ -1,3 +1,4 @@
-face-recognition
 opencv-python-headless
+pandas
 openpyxl
+pytz
