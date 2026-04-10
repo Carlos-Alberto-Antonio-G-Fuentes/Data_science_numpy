@@ -114,4 +114,6 @@ with tab2:
     st.subheader("Registros en el Servidor")
     if os.path.exists(DB_EXCEL):
         df_log = pd.read_excel(DB_EXCEL)
-        st.dataframe(df_log.sort_values(by
+        st.dataframe(df_log.sort_values(by="Fecha_Hora", ascending=False), use_container_width=True)
+    else:
+        st.info("No hay registros de acceso todavía.")
