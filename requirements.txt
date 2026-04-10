@@ -3,4 +3,3 @@ opencv-python-headless
 pandas
 openpyxl
 pytz
-numpy
